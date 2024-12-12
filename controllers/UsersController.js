@@ -4,6 +4,7 @@ import { ObjectId } from 'mongodb';
 import dbClient from '../utils/db';
 import tokenUtils from '../utils/token';
 
+// instantiate a new Bull queue named userQueue
 const userQueue = new Bull('userQueue');
 
 class UsersController {
@@ -16,6 +17,7 @@ class UsersController {
     const hashPassword = sha1(password);
     const newUser = await dbClient.createUser({ email, password: hashPassword });
 
+    // Add a job to the userQueue for sending a welcome email
     userQueue.add({ userId: newUser.insertedId });
 
     return res.status(201).json({ id: newUser.insertedId, email });
@@ -23,11 +25,16 @@ class UsersController {
 
   static async getMe(req, res) {
     const tokenValue = req.headers['x-token'];
+    // console.log(tokenValue);
     if (!tokenValue) return res.status(401).json({ error: 'Unauthorized' });
+    // use token.js to retrieve the user ID from the token
     const userId = await tokenUtils.retrieveToken(req);
+    // console.log(userId);
     if (!userId) return res.status(401).json({ error: 'Unauthorized' });
     const user = await dbClient.findUser({ _id: ObjectId(userId) });
+    // console.log(user);
     if (!user) return res.status(401).json({ error: 'Unauthorized' });
+    // return the user information
     return res.status(200).json({ id: user._id, email: user.email });
   }
 }
